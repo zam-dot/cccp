@@ -1,0 +1,23 @@
+# Create .gitignore for Go projects
+cat > .gitignore << EOF
+# Binaries
+output/
+bin/
+
+# Dependency directories
+vendor/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.exe
+*.out
+EOF
