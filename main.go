@@ -18,14 +18,18 @@ import (
 // it handles command-line arguments, coordinates the compilation process,
 // and executes the generated code.
 //
-// - len(os.Args) < 2: 	Check if the filename was provided.
-// - inputBytes: 		Read source code from file.
-// - lexer.New(input): 	Lexical Analysis, convert source code to tokens.
-// - for loop: 			Print all tokens to verify lexer output and reset lexer after debugging.
-// - debugEnabled: 		Check if debugging is enabled, CCCP_SHOW_CODE=1 go run main.go program.cccp
-// -
+// - ARGS:			 	Check if the filename was provided.
+// - INPUT BYTES: 		Read source code from file.
+// - LEXICAL ANALYSIS: 	Lexical Analysis, convert source code to tokens.
+// - RESET LEXER: 		for parser (since we consumed tokens during debugging)
+// - OUTPUT AST: 		Display the parsed AST structure
+// - CODE GENERATION: 	Convert AST to C code
+// - WRITE: 			Write generated C code to output file
+// - COMPILE: 			Compile the generated C code using GCC
+// - EXECUTE: 			Execute the compiled program
 
 func main() {
+	// ARGS:
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run main.go <filename>")
 		fmt.Println("Example: go run main.go program.cccp")
@@ -34,6 +38,7 @@ func main() {
 
 	filename := os.Args[1]
 
+	// INPUT BYTES:
 	inputBytes, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
@@ -58,16 +63,13 @@ func main() {
 		}
 	}
 
-	// Debug logging function
 	debug := func(format string, args ...any) {
 		if debugEnabled && debugLog != nil {
 			fmt.Fprintf(debugLog, format, args...)
 			fmt.Fprintf(debugLog, "\n")
 		}
 	}
-	// ========== END DEBUG LOGGING CODE ==========
-
-	// Lexical Analysis: Convert source code to tokens
+	// LEXICON ANALYSIS:
 	l := lexer.New(input)
 
 	// DEBUG: Print all tokens to verify lexer output
@@ -80,16 +82,15 @@ func main() {
 		}
 	}
 
-	// Reset lexer for parser (since we consumed tokens during debugging)
+	// RESET LEXER
 	l = lexer.New(input)
 
-	// Continue with the rest of your existing code...
-	// Replace other debug prints with debug() calls
+	// replace other debug prints with debug() calls
 	debug("=== Parser Output ===")
 	p := parser.New(l)
 	program := p.ParseProgram()
 
-	// Check for parsing errors
+	// check for parsing errors
 	if len(p.Errors()) > 0 {
 		fmt.Println("Parser errors:")
 		for _, msg := range p.Errors() {
@@ -98,7 +99,7 @@ func main() {
 		return
 	}
 
-	// Display the parsed AST structure
+	// OUTPUT AST:
 	fmt.Println("=== AST ===")
 	PrettyPrintAST(program, "")
 
@@ -108,13 +109,13 @@ func main() {
 		fmt.Printf("Statement %d: %T\n", i, stmt)
 	}
 
-	// Code Generation: Convert AST to C code
+	// CODE GENERATION:
 	fmt.Println("\n=== Generated C Code ===")
 	generator := codegen.New()
 	cCode := generator.Generate(program)
 	fmt.Println(cCode)
 
-	// Write generated C code to output file
+	// WRITE:
 	err = os.WriteFile("output/output.c", []byte(cCode), 0644)
 	if err != nil {
 		fmt.Println("Error writing output.c:", err)
@@ -122,7 +123,7 @@ func main() {
 	}
 	fmt.Println("\n✅ C code written to output.c")
 
-	// Compile the generated C code using GCC
+	// COMPILE:
 	fmt.Println("\n=== Compiling and Running ===")
 	cmd := exec.Command("gcc", "output/output.c", "-o", "output/output")
 	compileOutput, err := cmd.CombinedOutput()
@@ -133,7 +134,7 @@ func main() {
 	}
 	fmt.Println("✅ Compiled successfully!")
 
-	// Execute the compiled program
+	// EXECUTE:
 	runCmd := exec.Command("./output/output")
 	runOutput, err := runCmd.Output()
 	if err != nil {
@@ -143,8 +144,9 @@ func main() {
 	fmt.Printf("✅ Program output: %s", runOutput)
 }
 
-// PrettyPrintAST recursively prints the AST in a readable, indented format.
-// This is useful for debugging and understanding the structure of the parsed program.
+// PrettyPrintAST
+// recursively prints the AST in a readable, indented format.
+// useful for debugging and understanding the structure of the parsed program.
 func PrettyPrintAST(node ast.Node, indent string) {
 	switch n := node.(type) {
 	case *ast.Program:
