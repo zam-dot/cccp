@@ -1,0 +1,12 @@
+func add(a, b) {
+    return a + b
+}
+
+func multiply(a, b) {
+    return a * b
+}
+
+var sum = add(5, 3)
+var product = multiply(4, 6)
+print(sum);
+print(product);
