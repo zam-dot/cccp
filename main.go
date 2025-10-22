@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"cccp/ast"
 	"cccp/codegen"
@@ -13,11 +14,18 @@ import (
 	"cccp/parser"
 )
 
-// main is the entry point of the CCCP compiler.
-// It handles command-line arguments, coordinates the compilation process,
+// main() is the entry point of the CCCP compiler and
+// it handles command-line arguments, coordinates the compilation process,
 // and executes the generated code.
+//
+// - len(os.Args) < 2: 	Check if the filename was provided.
+// - inputBytes: 		Read source code from file.
+// - lexer.New(input): 	Lexical Analysis, convert source code to tokens.
+// - for loop: 			Print all tokens to verify lexer output and reset lexer after debugging.
+// - debugEnabled: 		Check if debugging is enabled, CCCP_SHOW_CODE=1 go run main.go program.cccp
+// -
+
 func main() {
-	// Check if filename was provided
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run main.go <filename>")
 		fmt.Println("Example: go run main.go program.cccp")
@@ -26,7 +34,6 @@ func main() {
 
 	filename := os.Args[1]
 
-	// Read source code from file
 	inputBytes, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
@@ -34,14 +41,40 @@ func main() {
 	}
 	input := string(inputBytes)
 
+	debugEnabled := os.Getenv("CCCP_DEBUG") != ""
+
+	var debugLog *os.File
+	if debugEnabled {
+		var err error
+		debugLog, err = os.Create("debug.log")
+		if err != nil {
+			fmt.Printf("Warning: Could not create debug.log: %v\n", err)
+			debugEnabled = false
+		} else {
+			defer debugLog.Close()
+			fmt.Fprintf(debugLog, "=== CCCP Compiler Debug Log ===\n")
+			fmt.Fprintf(debugLog, "Started at: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+			fmt.Fprintf(debugLog, "Input file: %s\n", filename)
+		}
+	}
+
+	// Debug logging function
+	debug := func(format string, args ...any) {
+		if debugEnabled && debugLog != nil {
+			fmt.Fprintf(debugLog, format, args...)
+			fmt.Fprintf(debugLog, "\n")
+		}
+	}
+	// ========== END DEBUG LOGGING CODE ==========
+
 	// Lexical Analysis: Convert source code to tokens
 	l := lexer.New(input)
 
 	// DEBUG: Print all tokens to verify lexer output
-	fmt.Println("=== Lexer Tokens ===")
+	debug("=== Lexer Tokens ===") // Replace fmt.Println with debug()
 	for {
 		tok := l.NextToken()
-		fmt.Printf("Token: %s '%s'\n", tok.Type, tok.Literal)
+		debug("Token: %s '%s'", tok.Type, tok.Literal) // Replace fmt.Printf with debug()
 		if tok.Type == ast.EOF {
 			break
 		}
@@ -50,7 +83,9 @@ func main() {
 	// Reset lexer for parser (since we consumed tokens during debugging)
 	l = lexer.New(input)
 
-	// Syntactic Analysis: Parse tokens into an Abstract Syntax Tree
+	// Continue with the rest of your existing code...
+	// Replace other debug prints with debug() calls
+	debug("=== Parser Output ===")
 	p := parser.New(l)
 	program := p.ParseProgram()
 

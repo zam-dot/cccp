@@ -1,5 +1,7 @@
 # CCCP Compiler
 
+Just a hobby project for me to learn, do not use this.
+
 A custom compiler for the CCCP (Custom C-like Compiler Project) programming language that generates C code.
 
 ## Project Structure
