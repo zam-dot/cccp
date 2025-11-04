@@ -11,55 +11,60 @@ import (
 )
 
 func main() {
-	// One function to rule them all!
+	// Create template with all available shortcode functions
 	tmpl := template.New("example.c.tmpl").Funcs(shortcodes.GetAllShortcodes())
 
-	// See what's available
-	fmt.Println("Available functions:", shortcodes.ListFunctions())
-
-	// ✅ FIX: Parse the template file from source/ folder
+	// Parse the template file from source/ folder
 	tmpl, err := tmpl.ParseFiles("source/example.c.tmpl")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to parse template: %v", err))
 	}
 
-	// ✅ ADD THIS: Create output file
+	// Create output file for generated C code
 	outputFile, err := os.Create("output/generated.c")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create output file: %v", err))
 	}
 	defer outputFile.Close()
 
-	// ✅ ADD THIS: Execute the template (this generates the content)
-	err = tmpl.Execute(outputFile, nil) // or pass data if needed
+	// Execute the template to generate C code content
+	err = tmpl.Execute(outputFile, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to execute template: %v", err))
 	}
 
-	// Now process the generated content
+	// Process the generated content for syntactic sugar
 	generatedContent, err := os.ReadFile("output/generated.c")
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Curl functions:", shortcodes.GetCurl())
-
+	// Process switch statements (convert markers to actual C switch syntax)
 	processedContent := processSwitchStatements(string(generatedContent))
 
+	// Write the processed content back to the file
 	err = os.WriteFile("output/generated.c", []byte(processedContent), 0644)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println("✅ Successfully generated output/generated.c!")
+
+	// Format the generated code for better readability
 	formatGeneratedCode("output/generated.c")
 }
 
+// formatGeneratedCode runs clang-format on the generated C file
+// Requires: clang-format to be installed on the system
+// Usage: Automatically formats the generated code to follow C style guidelines
 func formatGeneratedCode(filename string) error {
 	cmd := exec.Command("clang-format", "-i", filename)
 	return cmd.Run()
 }
 
+// processSwitchStatements converts syntactic sugar markers to actual C switch syntax
+// Processes: SWITCH_START, CASE, DEFAULT, and SWITCH_END markers
+// Usage: Post-processes template output to generate valid C switch statements
 func processSwitchStatements(content string) string {
 	// Use regex for exact pattern matching
 	content = regexp.MustCompile(`/\* SWITCH_START\(([^)]+)\) \*/`).

@@ -8,13 +8,15 @@ import (
 
 // Registry of all function providers
 var functionProviders = []func() template.FuncMap{
-	GetShortcodes, // Core functions
-	GetCurl,       // HTTP functions
-	GetJSON,       // JSON functions  ← ADD THIS LINE
+	GetShortcodes, // Core functions (core.go)
+	GetCurl,       // HTTP functions (curl.go)
+	GetJSON,       // JSON functions (json.go)
+	GetSugars,     // Syntactic sugar functions (sugar.go)
 	// Add new providers here as you create them
 }
 
 // GetAllShortcodes automatically discovers and combines all functions
+// Returns: Combined template.FuncMap with all available shortcode functions
 func GetAllShortcodes() template.FuncMap {
 	combined := template.FuncMap{}
 
@@ -33,7 +35,9 @@ func GetAllShortcodes() template.FuncMap {
 	return combined
 }
 
-// Helper to see what functions are available
+// ListFunctions returns a list of all available function names
+// Usage: Helpful for debugging and discovering available shortcodes
+// Returns: Slice of function names as strings
 func ListFunctions() []string {
 	funcMap := GetAllShortcodes()
 	names := make([]string, 0, len(funcMap))
@@ -42,4 +46,3 @@ func ListFunctions() []string {
 	}
 	return names
 }
-

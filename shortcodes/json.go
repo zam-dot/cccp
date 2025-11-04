@@ -6,8 +6,16 @@ import (
 	"text/template"
 )
 
+// Add this befor main()
+// {{ httpCallback "response" }}
 func GetJSON() template.FuncMap {
 	return template.FuncMap{
+
+		// jsonExtract: Extract value from JSON using jq command-line tool
+		// Usage: {{ jsonExtract "jsonVariable" "jqPath" "resultVariable" }}
+		// Example: {{ jsonExtract "response" "\".slideshow.title\"" "title" }}
+		// Note: Requires jq to be installed on the system
+		// Note: jqPath should be properly quoted (e.g., "\".path.to.field\"")
 		"jsonExtract": func(jsonVar, pathVar, resultVar string) string {
 			return fmt.Sprintf(`/* 📄 Extract JSON value using jq */
 char *%s = NULL;

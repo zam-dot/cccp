@@ -8,6 +8,11 @@ import (
 
 func GetCurl() template.FuncMap {
 	return template.FuncMap{
+
+		// httpCallback: Generate CURL write callback function for HTTP responses
+		// Usage: {{ httpCallback "variableName" }} (must be outside main())
+		// Example: {{ httpCallback "response" }}
+		// Note: Creates a static write_callback_function for handling HTTP response data
 		"httpCallback": func(resultVar string) string {
 			return fmt.Sprintf(`/* 🌐 HTTP Callback for %s */
 static size_t write_callback_%s(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -28,6 +33,11 @@ static size_t write_callback_%s(char *ptr, size_t size, size_t nmemb, void *user
 }`, resultVar, resultVar)
 		},
 
+		// httpGet: Perform HTTP GET request using libcurl
+		// Usage: {{ httpGet "url" "responseVariable" }}
+		// Example: {{ httpGet "\"https://api.example.com/data\"" "response" }}
+		// Note: Requires libcurl development libraries (-lcurl when compiling)
+		// Note: Response variable must have corresponding httpCallback declaration
 		"httpGet": func(urlVar, resultVar string) string {
 			return fmt.Sprintf(`char *%s = NULL;
 CURL *curl = curl_easy_init();
@@ -54,6 +64,10 @@ if (res != CURLE_OK) {
 curl_easy_cleanup(curl);`, resultVar, urlVar, resultVar, resultVar, resultVar, resultVar, resultVar)
 		},
 
+		// freeResponse: Safely free HTTP response memory
+		// Usage: {{ freeResponse "responseVariable" }}
+		// Example: {{ freeResponse "response" }}
+		// Note: Sets pointer to NULL after freeing to prevent double-free
 		"freeResponse": func(responseVar string) string {
 			return fmt.Sprintf(
 				`if (%s) { free(%s); %s = NULL; }`,

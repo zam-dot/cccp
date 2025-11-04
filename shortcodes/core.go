@@ -9,6 +9,10 @@ import (
 func GetShortcodes() template.FuncMap {
 	return template.FuncMap{
 		// ====== Dynamic Line ======
+
+		// readDynamicLinePortable: Read a line from file into dynamically allocated buffer
+		// Usage: {{ readDynamicLinePortable "filePointer" "lineBuffer" }}
+		// Example: {{ readDynamicLinePortable "fp" "line" }}
 		"readDynamicLinePortable": func(fpVar, lineVar string) string {
 			return fmt.Sprintf(
 				`char *%s = NULL;
@@ -59,6 +63,10 @@ free(buffer);`,
 		},
 
 		// ====== String Copy ======
+
+		// stringCopy: Safe string copy with bounds checking
+		// Usage: {{ stringCopy "destination" "source" "bufferSize" }}
+		// Example: {{ stringCopy "dest" "src" "sizeof(dest)" }}
 		"stringCopy": func(dest, src, destSize string) string {
 			return fmt.Sprintf(
 				`if (%s > 0) {
@@ -70,7 +78,11 @@ free(buffer);`,
 				destSize, dest, src, destSize, dest, destSize)
 		},
 
-		// ====== String Copy ======
+		// ========= StrCat ========
+
+		// strcat: Safe string concatenation with bounds checking
+		// Usage: {{ strcat "destination" "source" "bufferSize" }}
+		// Example: {{ strcat "dest" "src" "sizeof(dest)" }}
 		"strcat": func(dest, src, destSize string) string {
 			return fmt.Sprintf(
 				`// Safe strcat with bounds checking
@@ -87,6 +99,10 @@ if (dest_len + src_len < %s - 1) {
 		},
 
 		// ====== Open File ======
+
+		// openFile: Open a file with error handling
+		// Usage: {{ openFile "filename" "mode" "filePointerVar" }}
+		// Example: {{ openFile "\"data.txt\"" "\"r\"" "fp" }}
 		"openFile": func(filename, mode, varName string) string {
 			return fmt.Sprintf(
 				`FILE *%s = fopen("%s", "%s");
@@ -99,7 +115,11 @@ if (%s == NULL) {
 				varName, filename, mode, varName, filename, mode, varName)
 		},
 
-		// ====== Get Memory ======
+		// ====== Auto free generic ======
+
+		// autoFreeGeneric: Define automatic memory cleanup macro (GCC/Clang)
+		// Usage: Include once in your template, no parameters needed
+		// Example: {{ autoFreeGeneric }}
 		"autoFreeGeneric": func() string {
 			return `#if defined(__GNUC__) || defined(__clang__)
     #define AUTO_FREE __attribute__((cleanup(auto_free_generic)))
@@ -113,7 +133,11 @@ static void auto_free_generic(void *p) {
 }`
 		},
 
-		// Update getMemory to use the macro
+		// ====== Get Memory ======
+
+		// getMemory: Allocate memory with automatic cleanup (GCC/Clang only)
+		// Usage: {{ getMemory "type" "variable" count }}
+		// Example: {{ getMemory "int" "numbers" 10 }}
 		"getMemory": func(typeName, varName string, count int) string {
 			return fmt.Sprintf(
 				`AUTO_FREE %s *%s = malloc(%d * sizeof(%s));
@@ -125,6 +149,10 @@ if (%s == NULL) {
 		},
 
 		// ====== Grow Memory ======
+
+		// growMemory: Reallocate memory to grow an existing buffer
+		// Usage: {{ growMemory "pointerName" newCount }}
+		// Example: {{ growMemory "buffer" 200 }}
 		"growMemory": func(ptrName string, newCount int) string {
 			return fmt.Sprintf(
 				`%s = realloc(%s, %d * sizeof(*%s));
@@ -135,7 +163,11 @@ if (%s == NULL) {
 				ptrName, ptrName, newCount, ptrName, ptrName, ptrName)
 		},
 
-		// ====== Auto-Growing Array ======
+		// ====== Create Auto-Growing Array ======
+
+		// createArray: Create a dynamic array with auto-growing capability
+		// Usage: {{ createArray "type" "variable" initialSize }}
+		// Example: {{ createArray "int" "myArray" 10 }}
 		"createArray": func(typeName, varName string, initialSize int) string {
 			return fmt.Sprintf(
 				`// Auto-growing array
@@ -160,6 +192,10 @@ if (%s.data == NULL) {
 		},
 
 		// ====== Push Array ======
+
+		// push: Add element to dynamic array, auto-growing if needed
+		// Usage: {{ push "arrayName" "value" }}
+		// Example: {{ push "myArray" "42" }}
 		"push": func(arrayName, value string) string {
 			return fmt.Sprintf(
 				`// Auto-grow array if needed
@@ -178,6 +214,11 @@ if (%s.size >= %s.capacity) {
 				arrayName, arrayName, value)
 		},
 
+		// ====== Array Cleanup ======
+
+		// arrayCleanup: Generate automatic cleanup function for dynamic arrays
+		// Usage: {{ arrayCleanup "arrayVariable" }}
+		// Example: {{ arrayCleanup "myArray" }}
 		"arrayCleanup": func(varName string) string {
 			return fmt.Sprintf(
 				`static void auto_free_array_%s(void *p) { 
@@ -191,7 +232,11 @@ __attribute__((cleanup(auto_free_array_%s))) Array_%s %s;`,
 				varName, varName, varName, varName, varName)
 		},
 
-		// ====== String Builder ======
+		// ====== Read Line ======
+
+		// readLine: Read a line into fixed-size buffer with newline removal
+		// Usage: {{ readLine "filePointer" "buffer" "bufferSize" }}
+		// Example: {{ readLine "fp" "lineBuffer" "sizeof(lineBuffer)" }}
 		"readLine": func(fpVar, bufferVar, bufferSize string) string {
 			return fmt.Sprintf(
 				`if (fgets(%s, %s, %s) == NULL) {
@@ -211,7 +256,11 @@ if (len > 0 && %s[len-1] == '\n') {
 				bufferVar, bufferSize, fpVar, fpVar, bufferVar, bufferVar, bufferVar, bufferVar)
 		},
 
-		// ====== String Builder ======
+		// ====== Create String  ======
+
+		// createString: Create a string builder for efficient string construction
+		// Usage: {{ createString "variable" }}
+		// Example: {{ createString "builder" }}
 		"createString": func(varName string) string {
 			return fmt.Sprintf(
 				`// Auto-growing string builder
@@ -235,6 +284,11 @@ if (%s.data == NULL) {
 				varName, varName, varName, varName, varName, varName)
 		},
 
+		// ====== Append ======
+
+		// append: Append text to string builder
+		// Usage: {{ append "builderName" "text" }}
+		// Example: {{ append "builder" "\"Hello, World!\"" }}
 		"append": func(builderName, text string) string {
 			// Generate unique variable names using builderName
 			return fmt.Sprintf(
@@ -263,6 +317,12 @@ if (%s.data == NULL) {
 				builderName, builderName, text,
 				builderName, builderName)
 		},
+
+		// ====== String Result ======
+
+		// stringResult: Get the final string from string builder
+		// Usage: {{ stringResult "builderName" }}
+		// Example: printf("Result: %s\n", {{ stringResult "builder" }});
 		"stringResult": func(builderName string) string {
 			return fmt.Sprintf("%s.data", builderName)
 		},
