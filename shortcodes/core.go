@@ -8,7 +8,8 @@ import (
 // GetShortcodes returns all your C template functions
 func GetShortcodes() template.FuncMap {
 	return template.FuncMap{
-		// ====== Dynamic Line ======
+
+		/* ===================== READ DYNAMIC LINES ======================= */
 
 		// readDynamicLinePortable: Read a line from file into dynamically allocated buffer
 		// Usage: {{ readDynamicLinePortable "filePointer" "lineBuffer" }}
@@ -62,7 +63,7 @@ free(buffer);`,
 			)
 		},
 
-		// ====== String Copy ======
+		/* ======================= STRING COPY =========================== */
 
 		// stringCopy: Safe string copy with bounds checking
 		// Usage: {{ stringCopy "destination" "source" "bufferSize" }}
@@ -78,7 +79,7 @@ free(buffer);`,
 				destSize, dest, src, destSize, dest, destSize)
 		},
 
-		// ========= StrCat ========
+		/* ==================== STRING CONCATENATION ======================= */
 
 		// strcat: Safe string concatenation with bounds checking
 		// Usage: {{ strcat "destination" "source" "bufferSize" }}
@@ -98,7 +99,7 @@ if (dest_len + src_len < %s - 1) {
 				dest, src, destSize, dest, src, destSize, dest)
 		},
 
-		// ====== Open File ======
+		/* ======================= OPEN FILE ============================ */
 
 		// openFile: Open a file with error handling
 		// Usage: {{ openFile "filename" "mode" "filePointerVar" }}
@@ -115,7 +116,7 @@ if (%s == NULL) {
 				varName, filename, mode, varName, filename, mode, varName)
 		},
 
-		// ====== Auto free generic ======
+		/* ===================== Auto Free Generic ======================== */
 
 		// autoFreeGeneric: Define automatic memory cleanup macro (GCC/Clang)
 		// Usage: Include once in your template, no parameters needed
@@ -133,7 +134,7 @@ static void auto_free_generic(void *p) {
 }`
 		},
 
-		// ====== Get Memory ======
+		/* ======================= GET MEMORY ========================== */
 
 		// getMemory: Allocate memory with automatic cleanup (GCC/Clang only)
 		// Usage: {{ getMemory "type" "variable" count }}
@@ -148,7 +149,7 @@ if (%s == NULL) {
 				typeName, varName, count, typeName, varName, varName)
 		},
 
-		// ====== Grow Memory ======
+		/* ======================= GROW MEMORY ========================== */
 
 		// growMemory: Reallocate memory to grow an existing buffer
 		// Usage: {{ growMemory "pointerName" newCount }}
@@ -163,7 +164,7 @@ if (%s == NULL) {
 				ptrName, ptrName, newCount, ptrName, ptrName, ptrName)
 		},
 
-		// ====== Create Auto-Growing Array ======
+		/* ======================= CREATE ARRAY  ========================== */
 
 		// createArray: Create a dynamic array with auto-growing capability
 		// Usage: {{ createArray "type" "variable" initialSize }}
@@ -191,7 +192,7 @@ if (%s.data == NULL) {
 				initialSize, varName, varName)
 		},
 
-		// ====== Push Array ======
+		/* ======================== PUSH ARRAY  =========================== */
 
 		// push: Add element to dynamic array, auto-growing if needed
 		// Usage: {{ push "arrayName" "value" }}
@@ -214,7 +215,7 @@ if (%s.size >= %s.capacity) {
 				arrayName, arrayName, value)
 		},
 
-		// ====== Array Cleanup ======
+		/* ======================== ARRAY CLEANUP  ============================ */
 
 		// arrayCleanup: Generate automatic cleanup function for dynamic arrays
 		// Usage: {{ arrayCleanup "arrayVariable" }}
@@ -232,7 +233,7 @@ __attribute__((cleanup(auto_free_array_%s))) Array_%s %s;`,
 				varName, varName, varName, varName, varName)
 		},
 
-		// ====== Read Line ======
+		/* ========================== READ LINE  ============================= */
 
 		// readLine: Read a line into fixed-size buffer with newline removal
 		// Usage: {{ readLine "filePointer" "buffer" "bufferSize" }}
@@ -256,7 +257,7 @@ if (len > 0 && %s[len-1] == '\n') {
 				bufferVar, bufferSize, fpVar, fpVar, bufferVar, bufferVar, bufferVar, bufferVar)
 		},
 
-		// ====== Create String  ======
+		/* ========================= CREATE STRING ============================ */
 
 		// createString: Create a string builder for efficient string construction
 		// Usage: {{ createString "variable" }}
@@ -284,7 +285,7 @@ if (%s.data == NULL) {
 				varName, varName, varName, varName, varName, varName)
 		},
 
-		// ====== Append ======
+		/* ========================== APPEND STRING ============================= */
 
 		// append: Append text to string builder
 		// Usage: {{ append "builderName" "text" }}
@@ -318,7 +319,7 @@ if (%s.data == NULL) {
 				builderName, builderName)
 		},
 
-		// ====== String Result ======
+		/* ========================= STRING RESULT  ============================ */
 
 		// stringResult: Get the final string from string builder
 		// Usage: {{ stringResult "builderName" }}

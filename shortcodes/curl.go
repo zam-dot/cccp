@@ -9,6 +9,8 @@ import (
 func GetCurl() template.FuncMap {
 	return template.FuncMap{
 
+		/* ===================== HTTP CALLBACK ======================= */
+
 		// httpCallback: Generate CURL write callback function for HTTP responses
 		// Usage: {{ httpCallback "variableName" }} (must be outside main())
 		// Example: {{ httpCallback "response" }}
@@ -32,6 +34,8 @@ static size_t write_callback_%s(char *ptr, size_t size, size_t nmemb, void *user
     return total_size;
 }`, resultVar, resultVar)
 		},
+
+		/* ======================= HTTP GET ========================= */
 
 		// httpGet: Perform HTTP GET request using libcurl
 		// Usage: {{ httpGet "url" "responseVariable" }}
@@ -63,6 +67,8 @@ if (res != CURLE_OK) {
 
 curl_easy_cleanup(curl);`, resultVar, urlVar, resultVar, resultVar, resultVar, resultVar, resultVar)
 		},
+
+		/* ==================== FREE HTTP MEMORY ======================= */
 
 		// freeResponse: Safely free HTTP response memory
 		// Usage: {{ freeResponse "responseVariable" }}

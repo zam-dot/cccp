@@ -11,6 +11,8 @@ import (
 func GetJSON() template.FuncMap {
 	return template.FuncMap{
 
+		/* ===================== JSON EXTRACTOR ======================= */
+
 		// jsonExtract: Extract value from JSON using jq command-line tool
 		// Usage: {{ jsonExtract "jsonVariable" "jqPath" "resultVariable" }}
 		// Example: {{ jsonExtract "response" "\".slideshow.title\"" "title" }}
