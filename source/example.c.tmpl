@@ -1,0 +1,35 @@
+// example.c.tmpl
+#include <curl/curl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+{{ httpCallback "response" }}
+
+int main() {
+    printf("Testing HTTP GET with JSON extraction...\n");
+    
+    {{ httpGet "\"https://httpbin.org/json\"" "response" }}
+    
+    if (response) {
+        printf("Full response: %s\n", response);
+        
+        // Extract specific fields
+{{ jsonExtract "response" "\".slideshow.title\"" "title" }}
+{{ jsonExtract "response" "\".slideshow.author\"" "author" }}
+        
+        if (title) {
+            printf("Title: %s\n", title);
+            {{ freeResponse "title" }}
+        }
+        
+        if (author) {
+            printf("Author: %s\n", author);  
+            {{ freeResponse "author" }}
+        }
+        
+        {{ freeResponse "response" }}
+    }
+    
+    return 0;
+}
