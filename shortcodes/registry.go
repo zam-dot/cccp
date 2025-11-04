@@ -12,6 +12,7 @@ var functionProviders = []func() template.FuncMap{
 	GetCurl,       // HTTP functions (curl.go)
 	GetJSON,       // JSON functions (json.go)
 	GetSugars,     // Syntactic sugar functions (sugar.go)
+	GetStrings,    // String handling
 	// Add new providers here as you create them
 }
 

@@ -1,0 +1,14 @@
+// strings.go
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+//#include <ctype.h> 
+
+{{ autoFreeGeneric }}
+
+int main() {
+{{ repeat "hello " 10 "massive" }}     // Clean and simple!
+{{ repeat "world " 10 "massive2" }}     // Clean and simple!
+printf("Repeated: %s\n", massive);
+printf("Repeated: %s\n", massive2);
+}

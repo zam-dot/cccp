@@ -12,16 +12,16 @@ import (
 
 func main() {
 	// Create template with all available shortcode functions
-	tmpl := template.New("example.c.tmpl").Funcs(shortcodes.GetAllShortcodes())
+	tmpl := template.New("strings.c.tmpl").Funcs(shortcodes.GetAllShortcodes())
 
 	// Parse the template file from source/ folder
-	tmpl, err := tmpl.ParseFiles("source/example.c.tmpl")
+	tmpl, err := tmpl.ParseFiles("source/strings.c.tmpl")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to parse template: %v", err))
 	}
 
 	// Create output file for generated C code
-	outputFile, err := os.Create("output/generated.c")
+	outputFile, err := os.Create("output/strings.c")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create output file: %v", err))
 	}
@@ -34,7 +34,7 @@ func main() {
 	}
 
 	// Process the generated content for syntactic sugar
-	generatedContent, err := os.ReadFile("output/generated.c")
+	generatedContent, err := os.ReadFile("output/strings.c")
 	if err != nil {
 		panic(err)
 	}
@@ -43,15 +43,15 @@ func main() {
 	processedContent := processSwitchStatements(string(generatedContent))
 
 	// Write the processed content back to the file
-	err = os.WriteFile("output/generated.c", []byte(processedContent), 0644)
+	err = os.WriteFile("output/strings.c", []byte(processedContent), 0644)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("✅ Successfully generated output/generated.c!")
+	fmt.Println("✅ Successfully generated output/strings.c!")
 
 	// Format the generated code for better readability
-	formatGeneratedCode("output/generated.c")
+	formatGeneratedCode("output/strings.c")
 }
 
 // formatGeneratedCode runs clang-format on the generated C file
