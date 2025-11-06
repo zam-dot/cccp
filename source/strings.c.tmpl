@@ -7,8 +7,16 @@
 {{ autoFreeGeneric }}
 
 int main() {
-{{ repeat "hello " 10 "massive" }}     // Clean and simple!
-{{ repeat "world " 10 "massive2" }}     // Clean and simple!
-printf("Repeated: %s\n", massive);
-printf("Repeated: %s\n", massive2);
+{{ slice_literal "helloWORLD" "2" "5" "result" }}
+printf("Sliced: %s\n", result); 
+
+{{ create "TESTING123!" "massive" }}
+{{ slice "massive" "2" "5" "output" }}
+printf("Sliced: %s\n", output); 
+
+int current_score = 42;      // ← Declare these first!
+int max_score = 100;         // ← Declare these first!
+
+{{ string_format "status" "\"Score: %d/%d\"" "current_score" "max_score" }}
+printf("Status: %s\n", status);
 }

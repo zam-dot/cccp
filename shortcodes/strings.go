@@ -11,24 +11,37 @@ func GetStrings() template.FuncMap {
 	return template.FuncMap{
 
 		/* ===================== STRING CREATION ======================= */
+		// In strings.go - add this function
+		"create_buffer": func(varName string, size int, initialValue string) string {
+			// Auto-add quotes if they're missing, but handle the user input properly
+			formattedValue := initialValue
+			if !strings.HasPrefix(initialValue, `"`) && !strings.HasSuffix(initialValue, `"`) {
+				formattedValue = `"` + initialValue + `"`
+			}
+			return fmt.Sprintf(`char %s[%d] = %s;`, varName, size, formattedValue)
+		},
+		/* ===================== STRING CREATION ======================= */
 
 		// string_create: Create a new string with automatic memory management
-		// Usage: {{ string_create "\"hello\"" "str" }}
+		// Usage: {{ string_create "hello" "str" }}
 		// In strings.go - make it handle both quoted and unquoted strings
-		"string_create": func(value, varName string) string {
+		"create": func(text, varName string) string {
 			// Auto-add quotes if they're missing
-			formattedValue := value
-			if !strings.HasPrefix(value, `"`) && !strings.HasSuffix(value, `"`) {
-				formattedValue = `"` + value + `"`
+			formattedText := text
+			if !strings.HasPrefix(text, `"`) && !strings.HasSuffix(text, `"`) {
+				formattedText = `"` + text + `"`
 			}
-
-			return fmt.Sprintf(`AUTO_FREE char *%s = strdup(%s);`, varName, formattedValue)
+			return fmt.Sprintf(`AUTO_FREE char *%s = strdup(%s);`, varName, formattedText)
 		},
 
 		/* ===================== STRING CONCATENATION ======================= */
 
-		// string_concat: Safe string concatenation
-		// Usage: {{ string_concat "str1" "str2" "result" }}
+		// Slice: Extract substring from input string
+		// Usage: {{ slice "input_var" "start_index" "end_index" "output_var" }}
+		// Example: {{ slice "text" "2" "5" "result" }}
+		//          // Extracts characters from index 2 to 5 from "text"
+		// Requires: input_var must be a valid null-terminated string
+		// Output: output_var contains the sliced substring, automatically freed
 		"string_concat": func(str1, str2, result string) string {
 			return fmt.Sprintf(
 				`AUTO_FREE char *%s = malloc(strlen(%s) + strlen(%s) + 1);
@@ -41,23 +54,42 @@ if (%s) {
 
 		/* ===================== STRING SLICING ======================= */
 
-		// string_slice: Python-like string slicing
-		// Usage: {{ string_slice "source" "2" "5" "result" }}
-		"string_slice": func(source, start, end, result string) string {
+		// slice: Python-like string slicing
+		// Usage: {{ slice "input_variable" "start_index" "end_index" "output_variable" }}
+		"slice": func(source, start, end, result string) string {
 			return fmt.Sprintf(
-				`AUTO_FREE char *%s = malloc(%s - %s + 1);
-if (%s && %s && %s + %s <= strlen(%s)) {
-    strncpy(%s, %s + %s, %s - %s);
-    %s[%s - %s] = '\0';
-} else {
-    %s = NULL;
+				`AUTO_FREE char *%s = NULL;
+if (%s && strlen(%s) >= %s) {
+    size_t start_idx = %s;
+    size_t end_idx = %s;
+    size_t slice_len = end_idx - start_idx;
+    %s = malloc(slice_len + 1);
+    if (%s) {
+        strncpy(%s, %s + start_idx, slice_len);
+        %s[slice_len] = '\0';
+    }
 }`,
-				result, end, start, result, source, source, start, source,
-				result, source, start, end, start, result, end, start, result)
+				result, source, source, end, start, end, result, result, result, source, result)
+		},
+
+		// {{ slice_literal "input_string" "start_index" "end_index" "output_variable" }}
+		"slice_literal": func(text, start, end, result string) string {
+			return fmt.Sprintf(
+				`AUTO_FREE char *%s = NULL;
+const char *temp = "%s";
+if (strlen(temp) >= %s) {
+    size_t slice_len = %s - %s;
+    %s = malloc(slice_len + 1);
+    if (%s) {
+        strncpy(%s, temp + %s, slice_len);
+        %s[slice_len] = '\0';
+    }
+}`,
+				result, text, end, end, start, result, result, result, start, result)
 		},
 
 		/* ===================== STRING REPEAT ======================= */
-
+		// {{ repeat "input_string" 10 "output_variable" }}
 		"repeat": func(text string, count any, result string) string {
 			countInt := 1
 			switch v := count.(type) {
@@ -98,8 +130,9 @@ if (%s) {
 		/* ===================== STRING FORMATTING ======================= */
 
 		// string_format: Safe sprintf replacement
-		// Usage: {{ string_format "result" "\"Hello %%s, you have %%d messages\"" "name" "count" }}
-		"string_format": func(result, format string, args ...string) string {
+		// Usage: {{ safe_format "status" "sizeof(status)" "Fetching: %s..." "current_url" }}
+		"safe_format": func(buffer, bufferSize, format string, args ...string) string {
+			// Build the argument list
 			argList := ""
 			for i, arg := range args {
 				if i > 0 {
@@ -108,15 +141,21 @@ if (%s) {
 				argList += arg
 			}
 
+			// Ensure the format string has quotes
+			formattedFormat := format
+			if !strings.HasPrefix(format, `"`) && !strings.HasSuffix(format, `"`) {
+				formattedFormat = `"` + format + `"`
+			}
+
 			return fmt.Sprintf(
-				`{
-    size_t needed = snprintf(NULL, 0, %s, %s) + 1;
-    AUTO_FREE char *%s = malloc(needed);
-    if (%s) {
-        snprintf(%s, needed, %s, %s);
+				`if (%s > 0) {
+    int written = snprintf(%s, %s, %s, %s);
+    if (written >= %s) {
+        %s[%s - 1] = '\0';
     }
 }`,
-				format, argList, result, result, result, format, argList)
+				bufferSize, buffer, bufferSize, formattedFormat, argList,
+				bufferSize, buffer, bufferSize)
 		},
 
 		/* ===================== STRING TRANSFORMS ======================= */

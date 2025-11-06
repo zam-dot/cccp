@@ -63,6 +63,20 @@ free(buffer);`,
 			)
 		},
 
+		/* ======================= GET HEADERS =========================== */
+
+		// In core.go - add this to GetShortcodes()
+		"get_includes": func() string {
+			return `#include <ctype.h>
+#include <curl/curl.h>
+#include <locale.h>
+#include <ncurses.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>`
+		},
+
 		/* ======================= STRING COPY =========================== */
 
 		// stringCopy: Safe string copy with bounds checking

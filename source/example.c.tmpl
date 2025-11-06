@@ -1,34 +1,17 @@
-// example.c.tmpl
-#include <curl/curl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+// In your template file:
+{{ get_includes }}
 
-{{ httpCallback "response" }}
+{{ curlCleanupFunc }}
+{{ httpCallback "json_response" }}
 
 int main() {
-    printf("Testing HTTP GET with JSON extraction...\n");
+    {{ httpGet "https://jsonplaceholder.typicode.com/users/1" "json_response" }}
     
-    {{ httpGet "\"https://httpbin.org/json\"" "response" }}
-    
-    if (response) {
-        printf("Full response: %s\n", response);
-        
-        // Extract specific fields
-{{ jsonExtract "response" "\".slideshow.title\"" "title" }}
-{{ jsonExtract "response" "\".slideshow.author\"" "author" }}
-        
-        if (title) {
-            printf("Title: %s\n", title);
-            {{ freeResponse "title" }}
-        }
-        
-        if (author) {
-            printf("Author: %s\n", author);  
-            {{ freeResponse "author" }}
-        }
-        
-        {{ freeResponse "response" }}
+    if (json_response) {
+        printf("✅ Success! Response:\\n%%s\\n", json_response);
+        {{ freeResponse "json_response" }}
+    } else {
+        printf("❌ No response received\\n");
     }
     
     return 0;
