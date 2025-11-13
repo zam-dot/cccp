@@ -2,6 +2,8 @@
 
 ## Still for testing - don't use this.
 
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+
 **"C is dangerous. Here's 20GB, 0 leaks."**
 
 A Go-based template system that generates memory-safe, error-checked C code from simple templates. 

@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/exec"
 
-	"ctranspiler/pkg/generators"
+	"cccp/pkg/generators"
 
 	"github.com/flosch/pongo2/v6"
 )
