@@ -1,0 +1,677 @@
+#include <dirent.h>
+#include <limits.h>
+#include <ncurses.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/select.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+// ============== FROM META LANGUAGE =============
+// AUTO-FREE DEMO - Add this FIRST
+#if defined(__GNUC__) || defined(__clang__)
+static void auto_free_generic(void *p) { free(*(void **)p); }
+#define AUTO_FREE __attribute__((cleanup(auto_free_generic)))
+#else
+#define AUTO_FREE // No support for other compilers
+#endif
+//================================================
+
+// Function prototypes
+void play_new_track();
+void toggle_play_pause();
+void move_selection_up();
+void move_selection_down();
+void play_selected_track();
+
+// Our playlist structure
+#define MAX_PATH_LENGTH 256
+#define MAX_FILES 100
+
+// Global variables
+char *playlist[MAX_FILES];
+int track_count = 0;
+int current_track = 0;
+int is_playing = 0;
+int is_paused = 0;
+int playlist_top = 0;
+int selected_track = 0;
+int cava_started_by_us = 0;
+int current_volume = 50;
+char current_directory[PATH_MAX];
+
+// ================= CHECK FOR FILES =================
+int is_audio_file(const char *filename) {
+    const char *ext = strrchr(filename, '.');
+    if (!ext)
+        return 0;
+
+    ext++;
+
+    return (strcasecmp(ext, "mp3") == 0 || strcasecmp(ext, "wav") == 0 ||
+            strcasecmp(ext, "flac") == 0 || strcasecmp(ext, "ogg") == 0 ||
+            strcasecmp(ext, "m4a") == 0 || strcasecmp(ext, "opus") == 0);
+}
+
+// ============ CHECK IF ITS A DIRECTORY ==============
+int is_directory(const char *path) {
+    struct stat statbuf;
+    if (stat(path, &statbuf) != 0)
+        return 0;
+    return S_ISDIR(statbuf.st_mode);
+}
+
+// ============== GET PARENT DIRECTORY ================
+void get_parent_directory(char *path) {
+    char *last_slash = strrchr(path, '/');
+    if (last_slash) {
+        if (last_slash == path) {
+            path[1] = '\0';
+        } else {
+            *last_slash = '\0';
+        }
+    }
+}
+
+// =============== PATH CONCATENATION ================
+int build_path(char *dest, size_t dest_size, const char *part1,
+               const char *part2) {
+    if (!dest || !part1 || !part2)
+        return 0;
+
+    size_t needed = strlen(part1) + strlen(part2) + 2;
+    if (needed > dest_size)
+        return 0;
+
+    if (part1[0] == '\0' || (part1[0] == '/' && part1[1] == '\0')) {
+        // Root directory case
+        snprintf(dest, dest_size, "/%s", part2);
+    } else {
+        snprintf(dest, dest_size, "%s/%s", part1, part2);
+    }
+    return 1;
+}
+
+// ========== SCAN DIRECTORY FOR MUSIC FILES ===========
+void scan_directory(const char *path) {
+    {{ "playlist" | auto_cleanup_array : "track_count" }}
+
+   {{ "current_directory" | string_copy : "path" }}
+
+    DIR *dir;
+    {{ "dir" | open_directory : "path" }}
+
+    struct dirent *entry;
+
+    if (strcmp(path, "/") != 0) {
+
+   {{ "playlist[track_count]" | get_memory : "4" }}
+    
+    if (playlist[track_count]) {
+            strcpy(playlist[track_count], "../");
+            track_count++;
+        }
+    }
+
+    rewinddir(dir);
+    while ((entry = readdir(dir)) != NULL && track_count < MAX_FILES) {
+        if (entry->d_name[0] == '.')
+            continue;
+
+        char full_path[PATH_MAX];
+        if (!build_path(full_path, sizeof(full_path), path, entry->d_name)) {
+            continue;
+        }
+
+        if (is_directory(full_path)) {
+            size_t needed = strlen(entry->d_name) + 2;
+            if (needed > PATH_MAX)
+                continue;
+
+            {{ "playlist[track_count]" | get_memory : "needed" }}
+            if (playlist[track_count]) {
+                {{ "" | snprintf_checked : "playlist[track_count],needed,\"%s/\",entry->d_name" }}
+                track_count++;
+            }
+        }
+    }
+
+    rewinddir(dir);
+    while ((entry = readdir(dir)) != NULL && track_count < MAX_FILES) {
+        if (entry->d_name[0] == '.')
+            continue;
+
+        char full_path[PATH_MAX];
+        if (!build_path(full_path, sizeof(full_path), path, entry->d_name)) {
+            continue;
+        }
+
+        if (!is_directory(full_path) && is_audio_file(entry->d_name)) {
+            size_t needed = strlen(path) + strlen(entry->d_name) + 2;
+            if (needed > PATH_MAX)
+                continue;
+
+            {{ "playlist[track_count]" | get_memory : "needed" }}
+            if (playlist[track_count]) {
+                {{ "" | snprintf_checked : "playlist[track_count],needed,\"%s/\",entry->d_name" }}
+                track_count++;
+            }
+        }
+    }
+
+    {{ "dir" | close_directory }}
+    selected_track = 0;
+    playlist_top = 0;
+}
+
+// ============== MOVE SELECTION UP ================
+void move_selection_up() {
+    if (track_count == 0)
+        return;
+
+    selected_track--;
+    if (selected_track < 0)
+        selected_track = 0;
+
+    if (selected_track < playlist_top) {
+        playlist_top = selected_track;
+    }
+}
+
+// ============= MOVE SELECTION DOWN ================
+void move_selection_down() {
+    if (track_count == 0)
+        return;
+
+    selected_track++;
+    if (selected_track >= track_count)
+        selected_track = track_count - 1;
+
+    if (selected_track >= playlist_top + 10) {
+        playlist_top = selected_track - 9;
+    }
+}
+
+// ============= PLAY SELECTED TRACK ================
+void play_selected_track() {
+    if (track_count == 0)
+        return;
+
+    const char *selected = playlist[selected_track];
+
+    if (strcmp(selected, "../") == 0 ||
+        (strlen(selected) > 0 && selected[strlen(selected) - 1] == '/')) {
+        char new_path[PATH_MAX];
+        int success = 0;
+
+        if (strcmp(selected, "../") == 0) {
+            strncpy(new_path, current_directory, sizeof(new_path));
+            get_parent_directory(new_path);
+            if (strlen(new_path) == 0)
+                strcpy(new_path, "/");
+            success = 1;
+        } else {
+            char dir_name[PATH_MAX];
+            strncpy(dir_name, selected, sizeof(dir_name) - 1);
+            dir_name[strlen(dir_name) - 1] = '\0';
+
+            success = build_path(new_path, sizeof(new_path), current_directory,
+                                 dir_name);
+        }
+
+        if (success) {
+            scan_directory(new_path);
+        }
+    } else {
+        current_track = selected_track;
+        play_new_track();
+    }
+}
+
+// ======== SEND COMMAND TO send_mpv_command =========
+void send_mpv_command(const char *command) {
+    char *full_command __attribute__((cleanup(auto_free_generic))) = NULL;
+
+    size_t needed =
+        snprintf(NULL, 0, "echo '%s' | socat - /tmp/mpvsocket > /dev/null 2>&1",
+                 command) +
+        1;
+    full_command = malloc(needed);
+    if (!full_command)
+        return;
+
+    snprintf(full_command, needed,
+             "echo '%s' | socat - /tmp/mpvsocket > /dev/null 2>&1", command);
+    system(full_command);
+}
+
+// ============= GET CURRENT VOLUME ==================
+int get_mpv_volume() {
+    FILE *fp = popen("echo '{ \"command\": [\"get_property\", \"volume\"] }' | "
+                     "socat - /tmp/mpvsocket 2>/dev/null",
+                     "r");
+    if (!fp)
+        return -1;
+
+    char buffer[256];
+    int volume = -1;
+
+    if (fgets(buffer, sizeof(buffer), fp)) {
+        char *data_start = strstr(buffer, "\"data\":");
+        if (data_start) {
+            volume = (int)atof(data_start + 7);
+        }
+    }
+    pclose(fp);
+    return volume;
+}
+
+// ========= STOP CURRENTLY PLAYING MUSIC ==============
+void stop_playback() {
+    system("pkill -TERM mpv > /dev/null 2>&1");
+    usleep(100000);
+    system("pkill -KILL mpv > /dev/null 2>&1");
+    is_playing = 0;
+    is_paused = 0;
+}
+
+// ============== PLAY NEXT / PREVIOUS =================
+void play_new_track() {
+    if (track_count == 0)
+        return;
+    stop_playback();
+    char command[512];
+
+    int written =
+        snprintf(command, sizeof(command),
+                 "mpv --no-video --quiet --input-ipc-server=/tmp/mpvsocket "
+                 "\"%s\" > /dev/null 2>&1 &",
+                 playlist[current_track]);
+
+    if (written < 0 || written >= (int)sizeof(command)) {
+        return;
+    }
+
+    system(command);
+    is_playing = 1;
+    is_paused = 0;
+
+    usleep(500000);
+}
+
+// ============== TOGGLE PLAY / PAUSE ==================
+void toggle_play_pause() {
+    if (!is_playing) {
+        play_new_track();
+    } else {
+        send_mpv_command("cycle pause");
+        is_paused = !is_paused;
+    }
+}
+
+// ================ PLAY NEXT TRACK ====================
+void next_track() {
+    if (track_count == 0)
+        return;
+
+    int original_track = current_track;
+    do {
+        current_track = (current_track + 1) % track_count;
+        if (current_track == original_track)
+            break;
+
+        const char *item = playlist[current_track];
+        if (strcmp(item, "../") != 0 &&
+            (strlen(item) > 0 && item[strlen(item) - 1] != '/')) {
+            break;
+        }
+    } while (1);
+
+    if (is_playing) {
+        play_new_track();
+    }
+    selected_track = current_track;
+}
+
+// ============= PLAY PREVIOUS TRACK ===================
+void previous_track() {
+    if (track_count == 0)
+        return;
+
+    int original_track = current_track;
+    do {
+        current_track = (current_track - 1 + track_count) % track_count;
+        if (current_track == original_track)
+            break;
+
+        const char *item = playlist[current_track];
+        if (strcmp(item, "../") != 0 &&
+            (strlen(item) > 0 && item[strlen(item) - 1] != '/')) {
+            break;
+        }
+    } while (1);
+
+    if (is_playing) {
+        play_new_track();
+    }
+    selected_track = current_track;
+}
+
+// =============== SEEK FORWARD 5s ====================
+void seek_forward() {
+    if (is_playing) {
+        send_mpv_command("seek 5");
+    }
+}
+
+// =============== SEEK BACKWARD 5s ===================
+void seek_backward() {
+    if (is_playing) {
+        send_mpv_command("seek -5");
+    }
+}
+
+// ======== EXTRACT FILENAME FROM FULL PATH ===========
+const char *get_filename(const char *path) {
+    const char *filename = strrchr(path, '/');
+    return filename ? filename + 1 : path;
+}
+
+// =============== FILENAME DISPLAY ===================
+const char *get_display_filename(const char *path) {
+    const char *filename = path;
+
+    if (strlen(path) > 0 && path[strlen(path) - 1] != '/') {
+        filename = get_filename(path);
+    }
+
+    int max_length = 50;
+
+    if (strlen(filename) <= max_length) {
+        return filename;
+    }
+
+    static char truncated[64];
+    int keep_start = 15;
+    int keep_end = 10;
+
+    if (keep_start + keep_end + 3 >= sizeof(truncated)) {
+        keep_start = 10;
+        keep_end = 10;
+    }
+
+    snprintf(truncated, sizeof(truncated), "%.*s...%.*s", keep_start, filename,
+             keep_end, filename + strlen(filename) - keep_end);
+    return truncated;
+}
+
+// ==================== DRAW UI =======================
+void draw_ui() {
+    clear();
+
+    attron(COLOR_PAIR(1) | A_BOLD);
+    mvprintw(0, 0, "Terminal Music Player");
+    attroff(COLOR_PAIR(1) | A_BOLD);
+
+    mvprintw(1, 0, "Directory: %s", current_directory);
+
+    mvprintw(3, 0, "Now Playing:");
+    if (track_count > 0 && current_track < track_count) {
+        const char *current_item = playlist[current_track];
+
+        if (strcmp(current_item, "../") != 0 &&
+            (strlen(current_item) > 0 &&
+             current_item[strlen(current_item) - 1] != '/')) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+            mvprintw(4, 2, "%s", get_display_filename(playlist[current_track]));
+            attroff(COLOR_PAIR(2) | A_BOLD);
+            mvprintw(5, 2, "Track: %d/%d", current_track + 1, track_count);
+
+            if (is_playing) {
+                if (is_paused) {
+                    attron(COLOR_PAIR(4));
+                    mvprintw(6, 2, "Status: PAUSED");
+                    attroff(COLOR_PAIR(4));
+                } else {
+                    attron(COLOR_PAIR(3));
+                    mvprintw(6, 2, "Status: PLAYING");
+                    attroff(COLOR_PAIR(3));
+                }
+            } else {
+                mvprintw(6, 2, "Status: STOPPED");
+            }
+
+            attron(COLOR_PAIR(2));
+            mvprintw(6, 40, "Vol: %d%%", current_volume);
+            attroff(COLOR_PAIR(2));
+        } else {
+            mvprintw(4, 2, "Select a folder or audio file");
+        }
+    } else {
+        attron(COLOR_PAIR(4));
+        mvprintw(4, 2, "No files found!");
+        attroff(COLOR_PAIR(4));
+    }
+
+    mvprintw(8, 0, "Files & Folders:");
+    int max_visible = 10;
+    for (int i = 0; i < max_visible && (i + playlist_top) < track_count; i++) {
+        int track_idx = i + playlist_top;
+        int y_pos = 9 + i;
+
+        const char *item = playlist[track_idx];
+
+        if (strcmp(item, "../") == 0) {
+            attron(COLOR_PAIR(5) | A_BOLD);
+        } else if (strlen(item) > 0 && item[strlen(item) - 1] == '/') {
+            attron(COLOR_PAIR(1));
+        } else if (track_idx == current_track && is_playing) {
+            attron(COLOR_PAIR(2) | A_BOLD);
+        }
+        if (track_idx == selected_track) {
+            attron(A_REVERSE);
+        }
+
+        char display[64];
+        if (strcmp(item, "../") == 0) {
+            snprintf(display, sizeof(display), "%s", item);
+        } else if (strlen(item) > 0 && item[strlen(item) - 1] == '/') {
+            snprintf(display, sizeof(display), "%s",
+                     get_display_filename(item));
+        } else {
+            snprintf(display, sizeof(display), "%s",
+                     get_display_filename(item));
+        }
+
+        mvprintw(y_pos, 2, "%s", display);
+        attroff(COLOR_PAIR(1) | COLOR_PAIR(2) | COLOR_PAIR(5) | A_BOLD |
+                A_REVERSE);
+    }
+
+    if (track_count > max_visible) {
+        mvprintw(9 + max_visible, 2, "... %d more items",
+                 track_count - (playlist_top + max_visible));
+    }
+
+    int controls_y = 9 + max_visible + 2;
+    mvprintw(controls_y, 0, "Controls:");
+    mvprintw(controls_y + 1, 2, "[P] Play/Pause  [Enter] Open/Play");
+    mvprintw(controls_y + 2, 2, "[N] Next  [B] Previous  [Q] Quit");
+    mvprintw(controls_y + 3, 2, "[<-] Seek -5s  [->] Seek +5s");
+    mvprintw(controls_y + 4, 2, "[Up/Down] Navigate");
+    mvprintw(controls_y + 5, 2, "[V] Toggle cava visualizer");
+
+    refresh();
+}
+
+// ============= TOGGLE CAVA IN TMUX =================
+void toggle_cava_split() {
+    if (getenv("TMUX") == NULL) {
+        mvprintw(18, 0, "Error: Not running in tmux!                 ");
+        refresh();
+        napms(1500);
+        return;
+    }
+
+    system("tmux select-pane -t '.0' 2>/dev/null");
+
+    if (cava_started_by_us) {
+        system("tmux kill-pane -t '.1' 2>/dev/null");
+        cava_started_by_us = 0;
+        mvprintw(18, 0, "Cava stopped!                                ");
+    } else {
+        system("tmux split-window -v -l 20 -d 'cava; exit' 2>/dev/null");
+        cava_started_by_us = 1;
+        mvprintw(18, 0, "Cava started!                                ");
+    }
+    refresh();
+    napms(1500);
+}
+
+// ============== CLEAN UP CAVA ON EXIT =============
+void cleanup_cava() {
+    if (cava_started_by_us) {
+        system("tmux kill-pane -t '.1' 2>/dev/null");
+    }
+}
+
+// =================== VOLUME UP ====================
+void volume_up() {
+    current_volume += 5;
+    if (current_volume > 100)
+        current_volume = 100;
+    char cmd[32];
+    snprintf(cmd, sizeof(cmd), "set volume %d", current_volume);
+    send_mpv_command(cmd);
+}
+
+// ================= VOLUME DOWN ===================
+void volume_down() {
+    current_volume -= 5;
+    if (current_volume < 0)
+        current_volume = 0;
+    char cmd[32];
+    snprintf(cmd, sizeof(cmd), "set volume %d", current_volume);
+    send_mpv_command(cmd);
+}
+
+// ============= CLEAN UP EVERYTHING ================
+void cleanup_all() {
+    static int cleaned = 0;
+    if (cleaned)
+        return;
+    cleaned = 1;
+
+    stop_playback();
+    cleanup_cava();
+    system("rm -f /tmp/mpvsocket 2>/dev/null");
+
+    {{ "playlist" | auto_cleanup_array : "track_count" }}
+}
+
+// =============== MAIN FUNCTION ===================
+int main() {
+    initscr();
+    if (stdscr == NULL) {
+        fprintf(stderr, "Error initializing ncurses\n");
+        return 1;
+    }
+
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    timeout(100);
+    curs_set(0);
+
+    if (has_colors()) {
+        start_color();
+        use_default_colors();
+
+        init_pair(1, COLOR_GREEN, -1);
+        init_pair(2, COLOR_CYAN, -1);
+        init_pair(3, COLOR_YELLOW, -1);
+        init_pair(4, COLOR_RED, -1);
+        init_pair(5, COLOR_MAGENTA, -1);
+    }
+
+    atexit(cleanup_all);
+
+    mvprintw(0, 0, "Scanning directory...\n");
+    refresh();
+
+    strcpy(current_directory, ".");
+    scan_directory(current_directory);
+
+    selected_track = 0;
+    if (track_count > 0) {
+        for (int i = 0; i < track_count; i++) {
+            const char *item = playlist[i];
+            if (strcmp(item, "../") != 0 &&
+                (strlen(item) > 0 && item[strlen(item) - 1] != '/')) {
+                current_track = i;
+                break;
+            }
+        }
+    }
+
+    int ch;
+    while (1) {
+        ch = getch();
+
+        switch (ch) {
+        case 'b':
+        case 'B':
+            previous_track();
+            break;
+        case 'p':
+        case 'P':
+            toggle_play_pause();
+            break;
+        case 'n':
+        case 'N':
+            next_track();
+            break;
+        case '+':
+        case '=':
+            volume_up();
+            break;
+        case '-':
+        case '_':
+            volume_down();
+            break;
+        case '\n':
+        case ' ':
+            play_selected_track();
+            break;
+        case 'v':
+        case 'V':
+            toggle_cava_split();
+            break;
+        case KEY_UP:
+            move_selection_up();
+            break;
+        case KEY_DOWN:
+            move_selection_down();
+            break;
+        case KEY_LEFT:
+            seek_backward();
+            break;
+        case KEY_RIGHT:
+            seek_forward();
+            break;
+        case 'q':
+        case 'Q':
+            cleanup_all();
+            endwin();
+            exit(0);
+        }
+        draw_ui();
+        napms(30);
+    }
+
+    endwin();
+    return 0;
+}

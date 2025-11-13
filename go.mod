@@ -1,5 +1,5 @@
-module template
+module cccp
 
-go 1.25.3
+go 1.25.4
 
-require gopkg.in/yaml.v3 v3.0.1
+require github.com/flosch/pongo2/v6 v6.0.0 // indirect
