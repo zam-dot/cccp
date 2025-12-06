@@ -1,0 +1,58 @@
+# ========================= IMPORTS ==========================
+import std/[strutils, sequtils, strformat]
+
+proc parseCDeclaration(line: string): (string, seq[string]) =
+  let at = line.find('@')
+  if at == -1:
+    return ("", @[])
+
+  let s = line.find('(', at)
+  if s == -1:
+    return ("", @[])
+
+  let e = line.find(')', s)
+  if e == -1:
+    return ("", @[])
+
+  let cmd = line[at + 1 ..< s].strip()
+
+  # Remove trailing semicolon if present
+  var argsStr = line[s + 1 ..< e].strip()
+  if argsStr.endsWith(';'):
+    argsStr = argsStr[0 ..^ 2]
+
+  let args = argsStr.split(',').mapIt(it.strip())
+
+  return (cmd, args)
+
+# ======================== GET MEMORY ========================
+# proc getMem(args: string): string =
+#   let getMemory = fmt"{args[0]} = malloc({args[1]}, {args[2]});"
+#   return getMemory
+
+# ======================= MAIN FUNCTION =======================
+proc main() =
+  const
+    inputFile = readFile("input/main.cccp")
+    outputFile = "output/main.c"
+
+  # if existsOrCreateDir(outputFile):
+  #   echo "Directory exists"
+
+  # Parse the input
+  let (cmd, argList) = parseCDeclaration(inputFile)
+
+  if cmd == "" or argList.len == 0:
+    return
+
+  if argList.len < 2:
+    return
+
+  let writingout =
+    fmt"{argList[0]} *{argList[1]} = malloc({argList[2]} * sizeof({argList[0]}));"
+  writeFile(outputFile, writingout)
+
+# discard execShellCmd("clang-format -i " & outputFile & " 2>/dev/null")
+
+when isMainModule:
+  main()

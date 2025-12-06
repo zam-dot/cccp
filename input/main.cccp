@@ -1,0 +1,19 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+
+// @getmem(int, ptr, size);
+// @free(ptr);
+// @stringcpy(dest, src);
+// @check(ptr, "malloc failed");
+// @moremem(int, ptr, new_size);
+
+
+int main() {
+    @getmem(int, arr, 100);
+    @moremem(int, arr, 200);
+
+    @check(arr, "malloc failed");
+    return 0;
+}
